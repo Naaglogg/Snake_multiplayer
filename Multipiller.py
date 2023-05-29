@@ -1,30 +1,58 @@
+import random
 import pygame
 import time
-import random
- 
+
 pygame.init()
- 
+clock = pygame.time.Clock()
+
+
+BLOCK = 30
+
+
 white = (255, 255, 255)
 yellow = (255, 255, 102)
 black = (0, 0, 0)
 red = (213, 50, 80)
 green = (0, 255, 0)
 blue = (50, 153, 213)
- 
-dis_width = 1920
-dis_height = 1080
- 
-dis = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-pygame.display.set_caption('Змейка')
- 
-clock = pygame.time.Clock()
+
+
+display_w = pygame.display.Info().current_w
+display_h = pygame.display.Info().current_h
+
+
+screen = {
+    'width_b' : display_w // BLOCK, # ширина экрана в клетках длины BLOCK
+    'height_b' : display_h // BLOCK, # высота экрана в клетках длины BLOCK
+}
+screen['width_p'] = screen['width_b'] * BLOCK # ширина экрана в пикселях
+screen['height_p'] = screen['height_b'] * BLOCK # высота экрана в пикселях
+screen['barrier_w'] = (display_w - screen['width_p']) // 2 # барьеры по ширине с боков экранов в пикселях
+screen['barrier_h'] = (display_h - screen['height_p']) // 2 # барьеры по высоте с боков экрана в пикселях
+screen['width&border'] = screen['width_p'] + screen['barrier_w'] # ширина барьера и игрового поля для использования в .move()
+screen['height&border'] = screen['height_p'] + screen['barrier_h'] # высота барьера и игрового поля для использования в .move()
+
+
+snakes = []
+
+def drawing(obj):
+    """
+    вывод обьекта на экран - змейки, яблока
+    """
+    for block in obj.blocks:
+        pygame.draw.rect(dis, obj.color, (block.x, block.y, BLOCK, BLOCK))
 
 
 
+def generate(size : int = 1):
+    """
+    генерация массива двух случайных координат x, y с учетом величины объекта в клетках BLOCK
+    """
+    x_coord = random.randint(0, screen['width_b'] - size) * BLOCK + screen['barrier_w']
+    y_coord = random.randint(0, screen['height_b'] - size) * BLOCK + screen['barrier_h']
+    return (x_coord, y_coord)
 
-SNAKE_STEP = 30
-
-def opposite(a):
+def opposite(a : str):
     opps = {
         "right" : "left",
         "left" : "right",
@@ -34,7 +62,7 @@ def opposite(a):
     return opps[a]
 
 class Coord(object):
-    def __init__(self, x,y):
+    def __init__(self, x : int, y : int):
         self.x = x
         self.y = y
 
@@ -59,163 +87,144 @@ class Snake(object):
 
     Snake.move(vector, eat) - движение по заданному направлению vector {str} с возможностью продлить змейку при eat = True {bool}
     """
-    def __init__(self, head, color = black):
+    def __init__(self, head : tuple, color : str = 'blue'):
         self.color = color
         self.head = Coord(head[0], head[1])
         self.blocks = [self.head]
         self.size = 1
-        #prev = previous, предыдущий
-        self.prev = 'down'
+        #prev = previous, предыдущий ход змейки
+        self.prev = ''
+        self.eat = 0
 
-    def move(self, vector, eat = False):
+    def move(self, vector : str):
         """
         Move
+        """
+        blocks = self.blocks
+        new_block = self.head.copy()
+
+        if opposite(vector) != self.prev:
+            self.prev = vector
+            
+        if self.prev == 'right':
+            new_block.x += BLOCK
+
+        if self.prev == 'left':
+            new_block.x -= BLOCK
+
+        if self.prev == 'up':
+            new_block.y -= BLOCK
+
+        if self.prev == 'down':
+            new_block.y += BLOCK
+
 
         """
-        if opposite(vector) != self.prev:
-            blocks = self.blocks
-            new_block = self.head.copy()
+        Проход змеи из одной части рамки в другую при выходе за границы
+        """
+        if new_block.x < screen['barrier_w']:
+            new_block.x = screen['width&border'] - BLOCK
 
-            if vector == 'right':
-                new_block.x += SNAKE_STEP
+        if new_block.x > screen['width&border'] - BLOCK:
+            new_block.x = screen['barrier_w']
 
-            if vector == 'left':
-                new_block.x -= SNAKE_STEP
+        if new_block.y < screen['barrier_h']:
+            new_block.y = screen['height&border'] - BLOCK
 
-            if vector == 'up':
-                new_block.y -= SNAKE_STEP
+        if new_block.y > screen['height&border'] - BLOCK:
+            new_block.y = screen['barrier_h']
 
-            if vector == 'down':
-                new_block.y += SNAKE_STEP
 
-            self.prev = vector
+        blocks.insert(0, new_block)
+        self.head = blocks[0]
+        self.size += 1
 
-            blocks.insert(0, new_block)
-            self.head = blocks[0]
-            self.size += 1
-
-            if not eat:
-                blocks.pop()
-                self.size -= 1
+        if not self.eat:
+            blocks.pop()
+            self.size -= 1
+        else:
+            self.eat -=1
+            
+    def collision(self, obj):
+        head = self.head
+        for block in obj.blocks:
+            if (head.x == block.x) and (head.y == block.y):
+                return True
 
 
 class Apple(object):
     """
     apple
-    Генерирует квадратное яблоко по заданной ширине, начиная от заданного левого нижнего угла
+    Генерирует квадратное яблоко по заданной ширине, начиная от заданного левого верхнего угла
     
     Apple.blocks - {list} координатов всех клеток яблока {Coord}
     
     Apple.size - ширина стороны одного яблоках (в клетках) {int}
     """
-    def __init__(self, block, size=1):
+    def __init__(self, block : list, size : int = 1, color : str = 'green'):
         self.blocks = [] 
         self.size = size
+        self.color = color
         for y in range(self.size):
             for x in range(self.size):
-                self.blocks.append(Coord(block[0] + SNAKE_STEP * y, block[1] - SNAKE_STEP * x))
-        
+                self.blocks.append(Coord(block[0] + BLOCK * x, block[1] + BLOCK * y))
 
 
 
 
-
-
-
-apl1 = Apple((30, 90))
-'''
-blocks = apl1.blocks
-for i in blocks:
-    print(i.x, i.y)
-'''
-
-snak1 = Snake((0, 0))
-
-
-
-
-def want_to_move(vector, eat = False):
-    """
-    nice
-    """
-    snak1.move(vector, eat)
-    for i in range(snak1.size):
-        block = snak1.blocks[i]
-        print('block n ', i + 1, 'coords = ', block.x, block.y)
 """
-
-#want_to_move('right', False)
-
-
-v - vector, направление движения
-e - eat, параметр поедания
-
-v, e = input().split()
-e = bool(int(e))
-while v != '0':
-    want_to_move(v, e)
-    v, e = input().split()
-    e = bool(int(e))
-    print('Создатель, за что?')
-    print('Создатель, убейте меня!')
+задание дисплея
 """
+dis = pygame.display.set_mode((display_w, display_h))
+
+apple = Apple(generate(2), 2)
 
 
+''''''
+vector = ''
+''''''
 
 
-def element_print(blocks, SNAKE_STEP, color=red):
-    for block in blocks: #
-        pygame.draw.rect(dis, color, [block.x, block.y, SNAKE_STEP, SNAKE_STEP])
+while True:
+    dis.fill(red)
+    dis.fill(blue, (screen['barrier_w'], screen['barrier_h'], screen['width_b']*BLOCK, screen['height_b']*BLOCK))
 
-def gameLoop():
-    game_over = False
 
     for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            quit()
+        if event.type== pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                pygame.quit()
+                quit()
+            if event.key == pygame.K_2:
+                snakes.append(Snake(generate()))
+            if event.key == pygame.K_w:
+                vector = 'up'
+            if event.key == pygame.K_a:
+                vector = "left"
+            if event.key == pygame.K_s:
+                vector = 'down'
+            if event.key == pygame.K_d:
+                vector = 'right'
+            
+    drawing(apple)
 
-    snake1 = Snake((round(random.randrange(0, dis_width - SNAKE_STEP) / 30.0) * 30.0, round(random.randrange(0, dis_height - SNAKE_STEP) / 30.0) * 30.0), green)
-    snake2 = Snake((round(random.randrange(0, dis_width - SNAKE_STEP) / 30.0) * 30.0, round(random.randrange(0, dis_height - SNAKE_STEP) / 30.0) * 30.0))
-    while not game_over:
+    for snake_id in range(len(snakes)):
+        snake = snakes[snake_id]
 
-        dis.fill(blue)
-        element_print(snake1.blocks, SNAKE_STEP, snake1.color)
-        vector1 = snake1.prev
+        drawing(snake)
 
-        element_print(snake2.blocks, SNAKE_STEP, snake2.color)
-        vector2 = snake2.prev
-        eat=False
-        for event in pygame.event.get():
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    pygame.quit()
-                    quit()
-                if event.key == pygame.K_w:
-                    vector1 = 'up'
-                elif event.key == pygame.K_a:
-                    vector1 = 'left'
-                elif event.key == pygame.K_s:
-                    vector1 = 'down'
-                elif event.key == pygame.K_d:
-                    vector1 = 'right'
-                if event.key == pygame.K_UP:
-                    vector2 = 'up'
-                elif event.key == pygame.K_LEFT:
-                    vector2 = 'left'
-                elif event.key == pygame.K_DOWN:
-                    vector2 = 'down'
-                elif event.key == pygame.K_RIGHT:
-                    vector2 = 'right'
-                if event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT:
-                    eat = True
-                else:
-                    eat = False
-        snake1.move(vector1, eat)
-        snake2.move(vector2, eat)
+        eat = False
+        if snake.collision(apple):
+            snake.eat += apple.size
 
-        pygame.display.update()
+            apple = Apple(generate(3), 3)
+        if vector:
+            snake.move(vector)
 
-        clock.tick(15)
 
-gameLoop()
+
+        
+    pygame.display.update()
+    clock.tick(15)
+
+
