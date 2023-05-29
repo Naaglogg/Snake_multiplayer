@@ -22,13 +22,150 @@ clock = pygame.time.Clock()
 
 
 
+SNAKE_STEP = 30
 
-snake_block = 30
-snake_speed = 15
+def opposite(a):
+    opps = {
+        "right" : "left",
+        "left" : "right",
+        "up" : "down",
+        "down" : "up"
+    }
+    return opps[a]
 
-def our_snake(snake_block, snake_list):
-    for x in snake_list:
-        pygame.draw.rect(dis, black, [x[0], x[1], snake_block, snake_block])
+class Coord(object):
+    def __init__(self, x,y):
+        self.x = x
+        self.y = y
+
+    def copy(self):
+        return Coord(self.x, self.y)
+
+
+class Snake(object):
+    """
+    snake
+    генерирует первую клетку змеи по заданным координатам, потом постепенно увеличивает её
+
+    Snake.color - цвет змейки {str}
+
+    Snake.head - координаты головы змейки {Coord} - для сравнения с координатами яблока и с хитбоксами
+
+    Snake.blocks - {list} координатов каждой клетки змейки {Coord}
+
+    Snake.size - длина змейки {int}
+
+    Snake.prev - направление последнего движения {str} - для ограничения движений и постоянного движения в заданную сторону
+
+    Snake.move(vector, eat) - движение по заданному направлению vector {str} с возможностью продлить змейку при eat = True {bool}
+    """
+    def __init__(self, head, color = black):
+        self.color = color
+        self.head = Coord(head[0], head[1])
+        self.blocks = [self.head]
+        self.size = 1
+        #prev = previous, предыдущий
+        self.prev = 'down'
+
+    def move(self, vector, eat = False):
+        """
+        Move
+
+        """
+        if opposite(vector) != self.prev:
+            blocks = self.blocks
+            new_block = self.head.copy()
+
+            if vector == 'right':
+                new_block.x += SNAKE_STEP
+
+            if vector == 'left':
+                new_block.x -= SNAKE_STEP
+
+            if vector == 'up':
+                new_block.y -= SNAKE_STEP
+
+            if vector == 'down':
+                new_block.y += SNAKE_STEP
+
+            self.prev = vector
+
+            blocks.insert(0, new_block)
+            self.head = blocks[0]
+            self.size += 1
+
+            if not eat:
+                blocks.pop()
+                self.size -= 1
+
+
+class Apple(object):
+    """
+    apple
+    Генерирует квадратное яблоко по заданной ширине, начиная от заданного левого нижнего угла
+    
+    Apple.blocks - {list} координатов всех клеток яблока {Coord}
+    
+    Apple.size - ширина стороны одного яблоках (в клетках) {int}
+    """
+    def __init__(self, block, size=1):
+        self.blocks = [] 
+        self.size = size
+        for y in range(self.size):
+            for x in range(self.size):
+                self.blocks.append(Coord(block[0] + SNAKE_STEP * y, block[1] - SNAKE_STEP * x))
+        
+
+
+
+
+
+
+
+apl1 = Apple((30, 90))
+'''
+blocks = apl1.blocks
+for i in blocks:
+    print(i.x, i.y)
+'''
+
+snak1 = Snake((0, 0))
+
+
+
+
+def want_to_move(vector, eat = False):
+    """
+    nice
+    """
+    snak1.move(vector, eat)
+    for i in range(snak1.size):
+        block = snak1.blocks[i]
+        print('block n ', i + 1, 'coords = ', block.x, block.y)
+"""
+
+#want_to_move('right', False)
+
+
+v - vector, направление движения
+e - eat, параметр поедания
+
+v, e = input().split()
+e = bool(int(e))
+while v != '0':
+    want_to_move(v, e)
+    v, e = input().split()
+    e = bool(int(e))
+    print('Создатель, за что?')
+    print('Создатель, убейте меня!')
+"""
+
+
+
+
+def element_print(blocks, SNAKE_STEP, color=red):
+    for block in blocks: #
+        pygame.draw.rect(dis, color, [block.x, block.y, SNAKE_STEP, SNAKE_STEP])
 
 def gameLoop():
     game_over = False
@@ -38,59 +175,47 @@ def gameLoop():
             pygame.quit()
             quit()
 
-    x1 = round(random.randrange(0, dis_width - snake_block) / 30.0) * 30.0
-    y1 = round(random.randrange(0, dis_height - snake_block) / 30.0) * 30.0
-
-    X_db = 0
-    Y_db = 0
- 
-    x1_change = 0
-    y1_change = 0
- 
-    snake_List = []
-    Length_of_snake = 1
-
+    snake1 = Snake((round(random.randrange(0, dis_width - SNAKE_STEP) / 30.0) * 30.0, round(random.randrange(0, dis_height - SNAKE_STEP) / 30.0) * 30.0), green)
+    snake2 = Snake((round(random.randrange(0, dis_width - SNAKE_STEP) / 30.0) * 30.0, round(random.randrange(0, dis_height - SNAKE_STEP) / 30.0) * 30.0))
     while not game_over:
+
+        dis.fill(blue)
+        element_print(snake1.blocks, SNAKE_STEP, snake1.color)
+        vector1 = snake1.prev
+
+        element_print(snake2.blocks, SNAKE_STEP, snake2.color)
+        vector2 = snake2.prev
+        eat=False
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_a and x1_change != snake_block and (X_db != x1 and Y_db != y1):
-                    x1_change = -snake_block
-                    X_db = x1
-                    y1_change = 0
-                elif event.key == pygame.K_d and x1_change != -snake_block and (X_db != x1 and Y_db != y1):
-                    x1_change = snake_block
-                    X_db = x1
-                    y1_change = 0
-                elif event.key == pygame.K_w and y1_change != snake_block and (X_db != x1 and Y_db != y1):
-                    y1_change = -snake_block
-                    Y_db = y1
-                    x1_change = 0
-                elif event.key == pygame.K_s and y1_change != -snake_block and (X_db != x1 and Y_db != y1):
-                    y1_change = snake_block
-                    Y_db = y1                    
-                    x1_change = 0
-        if x1 > (dis_width - snake_block) or x1 < 0 or y1 > (dis_height - snake_block) or y1 < 0:
-            game_over = True
-        x1 += x1_change
-        y1 += y1_change
-        dis.fill(blue)
-        snake_Head = []
-        snake_Head.append(x1)
-        snake_Head.append(y1)
-        snake_List.append(snake_Head)
-        if len(snake_List) > Length_of_snake:
-            del snake_List[0]
- 
-        for x in snake_List[:-1]:
-            if x == snake_Head:
-                game_over = True
- 
-        our_snake(snake_block, snake_List)
+                if event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    quit()
+                if event.key == pygame.K_w:
+                    vector1 = 'up'
+                elif event.key == pygame.K_a:
+                    vector1 = 'left'
+                elif event.key == pygame.K_s:
+                    vector1 = 'down'
+                elif event.key == pygame.K_d:
+                    vector1 = 'right'
+                if event.key == pygame.K_UP:
+                    vector2 = 'up'
+                elif event.key == pygame.K_LEFT:
+                    vector2 = 'left'
+                elif event.key == pygame.K_DOWN:
+                    vector2 = 'down'
+                elif event.key == pygame.K_RIGHT:
+                    vector2 = 'right'
+                if event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT:
+                    eat = True
+                else:
+                    eat = False
+        snake1.move(vector1, eat)
+        snake2.move(vector2, eat)
 
         pygame.display.update()
 
-        clock.tick(snake_speed)
-    pygame.quit()
-    quit()
+        clock.tick(15)
 
 gameLoop()
